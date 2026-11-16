@@ -2,90 +2,195 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="theme-color" content="#4f46e5">
-<title>QR Code Studio — Générateur & Scanner</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%234f46e5'/%3E%3Ctext x='32' y='44' font-size='32' text-anchor='middle' fill='white' font-family='sans-serif' font-weight='bold'%3EQR%3C/text%3E%3C/svg%3E">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#6366f1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="QR Studio">
+<title>QR Studio — Générateur & Scanner de QR codes</title>
+<link rel="icon" type="image/svg+xml" href="icons/icon.svg">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="manifest" href="manifest.webmanifest">
 <script src="https://unpkg.com/qr-code-styling@1.5.0/lib/qr-code-styling.js"></script>
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <script src="https://unpkg.com/jsqr@1.4.0/dist/jsQR.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
-  * { box-sizing: border-box; font-family: system-ui, -apple-system, sans-serif; }
-  body { margin: 0; background: #f3f4f6; color: #1f2937; padding: 1rem; }
-  .tabs { display: flex; gap: .5rem; margin: 0 auto 1.5rem; max-width: 1100px; flex-wrap: wrap; }
-  .tab { padding: .75rem 1.5rem; background: #fff; border: 1px solid #e5e7eb; border-radius: .5rem; cursor: pointer; font-weight: 600; font-size: .9rem; }
-  .tab.active { background: #4f46e5; color: #fff; border-color: #4f46e5; }
-  .tab-content { display: none; }
+  :root {
+    --bg: #f4f5fb; --bg2: #eceefa; --card: #ffffff; --line: #e4e6f2; --tx: #14162b; --mu: #646a86; --soft: #f6f7fd;
+    --ac: #6366f1; --ac2: #8b5cf6; --pk: #ec4899; --ok: #10b981; --dan: #ef4444; --warn: #f59e0b;
+    --grad: linear-gradient(135deg, #6366f1, #8b5cf6 55%, #ec4899);
+    --sh: 0 1px 2px rgba(20,22,43,.04), 0 8px 24px -12px rgba(20,22,43,.12);
+    --r: 20px; --nav: 72px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #0b0c18; --bg2: #11132a; --card: #15172b; --line: #262944; --tx: #eef0ff; --mu: #9aa0c4; --soft: #1b1e36;
+      --sh: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px -12px rgba(0,0,0,.6); }
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", system-ui, sans-serif; }
+  body { margin: 0; background: var(--bg); color: var(--tx); min-height: 100vh;
+    background-image: radial-gradient(1200px 500px at 85% -10%, rgba(139,92,246,.16), transparent 60%), radial-gradient(900px 400px at -10% 0%, rgba(99,102,241,.14), transparent 60%);
+    background-attachment: fixed; padding-bottom: calc(var(--nav) + env(safe-area-inset-bottom) + 16px); }
+  svg { width: 20px; height: 20px; flex: none; }
+  /* ---- en-tête ---- */
+  .appbar { position: sticky; top: 0; z-index: 50; display: flex; align-items: center; gap: 12px; padding: calc(env(safe-area-inset-top) + 12px) 18px 12px;
+    background: color-mix(in srgb, var(--bg) 78%, transparent); backdrop-filter: saturate(1.6) blur(16px); -webkit-backdrop-filter: saturate(1.6) blur(16px); border-bottom: 1px solid color-mix(in srgb, var(--line) 60%, transparent); }
+  .appbar img { width: 40px; height: 40px; border-radius: 11px; box-shadow: 0 6px 16px -6px rgba(99,102,241,.6); }
+  .appbar b { display: block; font-size: 18px; letter-spacing: -.02em; }
+  .appbar small { color: var(--mu); font-size: 12.5px; }
+  .appbar .badge { margin-left: auto; display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: var(--mu); background: var(--card); border: 1px solid var(--line); padding: 6px 10px; border-radius: 99px; }
+  .appbar .badge svg { width: 14px; height: 14px; color: var(--ok); }
+  /* ---- onglets : barre du bas sur mobile, segments en haut sur grand écran ---- */
+  .tabs { position: fixed; z-index: 60; left: 12px; right: 12px; bottom: calc(10px + env(safe-area-inset-bottom)); height: 62px; display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 4px; padding: 6px; border-radius: 22px; background: color-mix(in srgb, var(--card) 86%, transparent); backdrop-filter: saturate(1.6) blur(20px); -webkit-backdrop-filter: saturate(1.6) blur(20px);
+    border: 1px solid var(--line); box-shadow: 0 12px 32px -12px rgba(20,22,43,.35); }
+  .tab { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border: 0; background: transparent; color: var(--mu); font: 600 11.5px/1 inherit; border-radius: 16px; cursor: pointer; transition: background .2s, color .2s; }
+  .tab svg { width: 22px; height: 22px; }
+  .tab.active { color: #fff; background: var(--grad); box-shadow: 0 8px 18px -8px rgba(99,102,241,.8); }
+  @media (min-width: 900px) {
+    body { padding-bottom: 32px; }
+    .tabs { position: static; margin: 20px auto 0; max-width: 420px; height: 52px; }
+    .tab { flex-direction: row; gap: 8px; font-size: 14px; }
+    .tab svg { width: 18px; height: 18px; }
+  }
+  .tab-content { display: none; animation: fade .25s ease; }
   .tab-content.active { display: block; }
-  .container { max-width: 1100px; margin: 0 auto; display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
-  @media (max-width: 900px) { .container { grid-template-columns: 1fr; } }
-  .card { background: #fff; padding: 1.5rem; border-radius: 1rem; box-shadow: 0 1px 3px rgba(0,0,0,.1); border: 1px solid #e5e7eb; }
-  h2 { margin: 0 0 1rem; font-size: 1.25rem; color: #4f46e5; }
-  h3 { margin: 1.5rem 0 .5rem; font-size: 1rem; color: #374151; }
-  label { display: block; margin-top: .75rem; font-weight: 600; font-size: .85rem; color: #4b5563; }
-  input, select, textarea { width: 100%; padding: .6rem; margin-top: .25rem; border: 1px solid #d1d5db; border-radius: .5rem; font-size: .95rem; }
-  textarea { resize: vertical; min-height: 70px; }
-  input[type="color"] { padding: .2rem; height: 40px; cursor: pointer; }
-  input[type="checkbox"] { width: auto; margin: 0; }
-  button { padding: .7rem 1rem; border: none; border-radius: .5rem; font-weight: 600; cursor: pointer; font-size: .9rem; transition: opacity .2s; }
-  button:hover { opacity: .9; }
-  button:disabled { opacity: .5; cursor: not-allowed; }
-  .btn-primary { background: #4f46e5; color: #fff; }
-  .btn-secondary { background: #6b7280; color: #fff; }
-  .btn-success { background: #10b981; color: #fff; }
-  .btn-danger { background: #ef4444; color: #fff; }
-  .btn-warning { background: #f59e0b; color: #fff; }
-  .btn-group { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; margin-top: .75rem; }
-  .row { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; }
+  @keyframes fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  /* ---- mise en page ---- */
+  .container { max-width: 1120px; margin: 0 auto; padding: 16px; display: grid; grid-template-columns: 1fr; gap: 16px; }
+  .preview-col { order: -1; }
+  .form-col, .preview-col { min-width: 0; }
+  @media (min-width: 900px) {
+    .container { grid-template-columns: minmax(0, 1.1fr) minmax(0, .9fr); padding: 24px; gap: 22px; align-items: start; }
+    .preview-col { order: 0; position: sticky; top: 84px; }
+    .single { grid-template-columns: minmax(0, 720px); justify-content: center; }
+  }
+  .card { background: var(--card); padding: 18px; border-radius: var(--r); box-shadow: var(--sh); border: 1px solid var(--line); }
+  .card + .card { margin-top: 16px; }
+  .card-h { display: flex; align-items: center; gap: 10px; margin: 0 0 14px; }
+  .card-h .ic { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; color: #fff; background: var(--grad); }
+  .card-h .ic svg { width: 18px; height: 18px; }
+  h2 { margin: 0; font-size: 17px; letter-spacing: -.01em; }
+  h3 { margin: 18px 0 8px; font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--mu); }
+  /* ---- types de contenu ---- */
+  .types { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  @media (min-width: 520px) { .types { grid-template-columns: repeat(5, 1fr); } }
+  .type { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px 6px; border-radius: 14px; border: 1px solid var(--line); background: var(--soft); color: var(--tx); font: 600 12.5px/1.1 inherit; cursor: pointer; transition: all .15s; }
+  .type svg { width: 22px; height: 22px; color: var(--ac); }
+  .type.on { border-color: transparent; background: var(--grad); color: #fff; box-shadow: 0 8px 18px -10px rgba(99,102,241,.9); }
+  .type.on svg { color: #fff; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  /* ---- formulaires ---- */
+  label { display: block; margin-top: 12px; font-weight: 600; font-size: 13px; color: var(--mu); }
+  input, select, textarea { width: 100%; padding: 12px 14px; margin-top: 6px; border: 1px solid var(--line); border-radius: 12px; font: 16px/1.3 inherit; color: var(--tx); background: var(--soft); transition: border .15s, box-shadow .15s; -webkit-appearance: none; appearance: none; }
+  select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23646a86' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; background-size: 18px; padding-right: 38px; }
+  input:focus, select:focus, textarea:focus { outline: none; border-color: var(--ac); box-shadow: 0 0 0 4px rgba(99,102,241,.18); background: var(--card); }
+  textarea { resize: vertical; min-height: 84px; }
+  input[type="color"] { padding: 4px; height: 46px; cursor: pointer; }
+  input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; } input[type="color"]::-webkit-color-swatch { border: 0; border-radius: 9px; }
+  input[type="checkbox"] { width: 46px; height: 28px; margin: 0; border-radius: 99px; padding: 0; background: var(--line); position: relative; cursor: pointer; flex: none; transition: background .2s; border: 0; }
+  input[type="checkbox"]::after { content: ''; position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.3); transition: transform .2s; }
+  input[type="checkbox"]:checked { background: var(--ac); } input[type="checkbox"]:checked::after { transform: translateX(18px); }
+  input[type="file"] { padding: 10px; background: var(--soft); }
+  .inline-flex { display: flex; flex-direction: row-reverse; align-items: center; justify-content: space-between; gap: 12px; margin-top: 14px; color: var(--tx); font-size: 14.5px; }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   .hidden { display: none !important; }
-  #qr-preview { display: flex; justify-content: center; align-items: center; min-height: 320px; padding: 1rem; background: #f9fafb; border-radius: .5rem; border: 2px dashed #e5e7eb; margin-bottom: 1rem; }
-  #qr-wrapper { display: inline-block; position: relative; background: #fff; border-radius: 12px; padding: 8px; transition: padding .2s, border .2s; }
-  #qr-wrapper.has-frame { padding: 20px; border: 4px solid var(--frame-color, #4f46e5); }
+  details.card > summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 10px; }
+  details.card > summary::-webkit-details-marker { display: none; }
+  details.card > summary::after { content: ''; margin-left: auto; width: 10px; height: 10px; border-right: 2px solid var(--mu); border-bottom: 2px solid var(--mu); transform: rotate(45deg); transition: transform .2s; }
+  details.card[open] > summary::after { transform: rotate(-135deg); }
+  details.card[open] > summary { margin-bottom: 4px; }
+  .presets { display: flex; gap: 8px; overflow-x: auto; padding: 4px 0 6px; scrollbar-width: none; }
+  .presets::-webkit-scrollbar { display: none; }
+  .pz { flex: none; display: flex; align-items: center; gap: 8px; padding: 8px 12px 8px 8px; border-radius: 99px; border: 1px solid var(--line); background: var(--soft); color: var(--tx); font: 600 13px inherit; cursor: pointer; }
+  .pz i { width: 22px; height: 22px; border-radius: 50%; background: var(--c); box-shadow: inset 0 0 0 2px rgba(255,255,255,.6); }
+  .pz.on { border-color: var(--ac); box-shadow: 0 0 0 3px rgba(99,102,241,.2); }
+  /* ---- boutons ---- */
+  button { font-family: inherit; }
+  .btn, .btn-group button, .card > button, #fields-geo button, .history-actions button, .modal-content button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 13px 16px; border: 1px solid var(--line); border-radius: 14px; font-weight: 650; cursor: pointer; font-size: 14.5px; color: var(--tx); background: var(--soft); transition: transform .1s, filter .2s, background .2s; }
+  button:active { transform: scale(.97); }
+  button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
+  .btn-primary, .btn-big { background: var(--grad) !important; color: #fff !important; border-color: transparent !important; box-shadow: 0 10px 22px -12px rgba(99,102,241,.95); }
+  .btn-secondary { background: var(--soft); color: var(--tx); }
+  .btn-success { background: color-mix(in srgb, var(--ok) 14%, var(--soft)) !important; color: color-mix(in srgb, var(--ok) 80%, var(--tx)) !important; border-color: color-mix(in srgb, var(--ok) 30%, var(--line)) !important; }
+  .btn-danger { background: color-mix(in srgb, var(--dan) 12%, var(--soft)) !important; color: var(--dan) !important; border-color: color-mix(in srgb, var(--dan) 30%, var(--line)) !important; }
+  .btn-warning { background: var(--soft); }
+  .btn-big { width: 100%; padding: 16px; font-size: 16px; border-radius: 16px; margin-top: 4px; }
+  .btn-group { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+  .btn-group.four { grid-template-columns: repeat(4, 1fr); }
+  .btn-group.four button { flex-direction: column; gap: 5px; padding: 11px 4px; font-size: 12px; }
+  /* ---- aperçu ---- */
+  #qr-preview { display: flex; justify-content: center; align-items: center; min-height: 300px; padding: 22px; border-radius: 18px; margin-bottom: 14px;
+    background: conic-gradient(from 90deg at 1px 1px, transparent 25%, color-mix(in srgb, var(--line) 55%, transparent) 0) 0 0/22px 22px, var(--soft); }
+  #qr-wrapper { display: inline-block; position: relative; background: #fff; border-radius: 18px; padding: 10px; box-shadow: 0 18px 40px -18px rgba(20,22,43,.45); transition: padding .2s, border .2s; max-width: 100%; }
+  #qr-wrapper canvas, #qr-wrapper svg { max-width: 100%; height: auto !important; width: auto; display: block; }
+  #qr-wrapper.has-frame { padding: 20px; border: 4px solid var(--frame-color, #6366f1); }
   #qr-wrapper.has-frame.has-text { padding-bottom: 70px; }
   #qr-container { display: flex; justify-content: center; }
-  #frame-label { position: absolute; bottom: 18px; left: 0; right: 0; text-align: center; font-weight: bold; font-size: 1.1rem; color: var(--frame-color, #4f46e5); display: none; padding: 0 10px; }
+  #frame-label { position: absolute; bottom: 18px; left: 0; right: 0; text-align: center; font-weight: 800; font-size: 1.1rem; color: var(--frame-color, #6366f1); display: none; padding: 0 10px; }
   #qr-wrapper.has-text #frame-label { display: block; }
-  .contrast-badge { display: inline-block; padding: .3rem .7rem; border-radius: 999px; font-size: .8rem; font-weight: 600; margin-top: .5rem; }
-  .contrast-good { background: #d1fae5; color: #065f46; }
-  .contrast-bad { background: #fee2e2; color: #991b1b; }
-  .contrast-warn { background: #fef3c7; color: #92400e; }
-  #validation-msg { margin-top: .75rem; padding: .6rem .8rem; border-radius: .5rem; font-size: .85rem; background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; }
-  #qr-reader { width: 100%; border-radius: .5rem; overflow: hidden; }
-  #scan-result { margin-top: 1rem; padding: 1rem; background: #f0fdf4; border: 1px solid #86efac; border-radius: .5rem; word-break: break-all; font-family: ui-monospace, monospace; font-size: .9rem; }
-  .history-item { display: flex; gap: 1rem; align-items: center; padding: 1rem; border: 1px solid #e5e7eb; border-radius: .5rem; margin-bottom: .75rem; background: #fff; }
-  .history-item img { width: 60px; height: 60px; border-radius: .25rem; object-fit: contain; background: #fff; border: 1px solid #f3f4f6; flex-shrink: 0; }
-  .history-item .info { flex: 1; font-size: .85rem; color: #6b7280; overflow: hidden; min-width: 0; }
-  .history-item .info strong { display: block; color: #1f2937; margin-bottom: .25rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .history-actions { display: flex; gap: .4rem; flex-shrink: 0; }
-  .history-actions button { padding: .4rem .7rem; font-size: .8rem; }
-  .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(100px); background: #1f2937; color: #fff; padding: .75rem 1.5rem; border-radius: .5rem; opacity: 0; transition: all .3s; z-index: 1000; font-size: .9rem; max-width: 90%; text-align: center; }
+  .contrast-badge { display: inline-flex; padding: 6px 12px; border-radius: 999px; font-size: 12.5px; font-weight: 650; margin-top: 6px; }
+  .contrast-good { background: color-mix(in srgb, var(--ok) 16%, transparent); color: color-mix(in srgb, var(--ok) 75%, var(--tx)); }
+  .contrast-bad { background: color-mix(in srgb, var(--dan) 16%, transparent); color: var(--dan); }
+  .contrast-warn { background: color-mix(in srgb, var(--warn) 18%, transparent); color: color-mix(in srgb, var(--warn) 70%, var(--tx)); }
+  #validation-msg { margin-top: 12px; padding: 12px 14px; border-radius: 12px; font-size: 13.5px; background: color-mix(in srgb, var(--warn) 14%, var(--card)); color: color-mix(in srgb, var(--warn) 65%, var(--tx)); border: 1px solid color-mix(in srgb, var(--warn) 35%, var(--line)); }
+  /* ---- scanner ---- */
+  .scan-zone { position: relative; margin-top: 14px; border-radius: 18px; overflow: hidden; background: #0b0c18; min-height: 220px; display: grid; place-items: center; }
+  .scan-zone .ph { color: #9aa0c4; text-align: center; font-size: 14px; padding: 24px; }
+  .scan-zone .ph svg { width: 44px; height: 44px; color: #8b5cf6; margin-bottom: 8px; }
+  #qr-reader { width: 100%; border: 0 !important; }
+  #qr-reader:not(:empty) + .ph { display: none; }
+  .file-btn { position: relative; overflow: hidden; width: 100%; margin-top: 10px; }
+  .file-btn input { position: absolute; inset: 0; opacity: 0; cursor: pointer; margin: 0; }
+  #scan-result { margin-top: 14px; padding: 14px 16px; background: color-mix(in srgb, var(--ok) 12%, var(--card)); border: 1px solid color-mix(in srgb, var(--ok) 40%, var(--line)); border-radius: 14px; word-break: break-all; font-family: ui-monospace, "SF Mono", monospace; font-size: 14px; }
+  #scan-result a { color: var(--ac); font-weight: 700; }
+  /* ---- historique ---- */
+  .history-item { display: flex; gap: 12px; align-items: center; padding: 12px; border: 1px solid var(--line); border-radius: 16px; margin-bottom: 10px; background: var(--soft); }
+  .history-item img { width: 58px; height: 58px; border-radius: 12px; object-fit: contain; background: #fff; flex-shrink: 0; padding: 3px; }
+  .history-item .info { flex: 1; font-size: 12.5px; color: var(--mu); overflow: hidden; min-width: 0; }
+  .history-item .info strong { display: block; color: var(--tx); font-size: 14px; margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .history-actions { display: flex; gap: 6px; flex-shrink: 0; }
+  .history-actions button { padding: 9px 11px; font-size: 13px; border-radius: 11px; }
+  .note { display: flex; gap: 10px; align-items: flex-start; color: var(--mu); font-size: 13px; line-height: 1.45; background: var(--soft); padding: 12px 14px; border-radius: 14px; margin: 0 0 14px; }
+  .note svg { width: 18px; height: 18px; color: var(--ok); margin-top: 1px; }
+  .empty { text-align: center; padding: 40px 16px; color: var(--mu); }
+  /* ---- notifications / fenêtres ---- */
+  .toast { position: fixed; bottom: calc(var(--nav) + env(safe-area-inset-bottom) + 18px); left: 50%; transform: translateX(-50%) translateY(20px); background: #14162b; color: #fff; padding: 12px 18px; border-radius: 14px; opacity: 0; transition: all .3s; z-index: 1000; font-size: 14px; font-weight: 600; max-width: 90%; text-align: center; box-shadow: 0 14px 30px -12px rgba(0,0,0,.5); }
+  @media (min-width: 900px) { .toast { bottom: 28px; } }
   .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
-  .toast-success { background: #10b981; } .toast-error { background: #ef4444; } .toast-warn { background: #f59e0b; }
-  .modal { position: fixed; inset: 0; background: rgba(0,0,0,.5); display: flex; justify-content: center; align-items: center; z-index: 999; padding: 1rem; }
-  .modal-content { background: #fff; padding: 1.5rem; border-radius: 1rem; max-width: 420px; width: 100%; }
-  .modal-content button { margin-top: .5rem; width: 100%; }
-  #share-preview { width: 100%; max-height: 200px; object-fit: contain; margin: 1rem 0; border-radius: .5rem; border: 1px solid #e5e7eb; }
-  .empty { text-align: center; padding: 3rem 1rem; color: #9ca3af; }
-  .inline-flex { display: flex; align-items: center; gap: .5rem; margin-top: .75rem; }
+  .toast-success { background: #059669; } .toast-error { background: #dc2626; } .toast-warn { background: #d97706; }
+  .modal { position: fixed; inset: 0; background: rgba(8,9,20,.55); backdrop-filter: blur(4px); display: flex; justify-content: center; align-items: flex-end; z-index: 999; padding: 12px; }
+  @media (min-width: 600px) { .modal { align-items: center; } }
+  .modal-content { background: var(--card); color: var(--tx); padding: 22px; border-radius: 22px; max-width: 440px; width: 100%; box-shadow: 0 30px 60px -20px rgba(0,0,0,.5); }
+  .modal-content button { margin-top: 8px; width: 100%; }
+  #share-preview { width: 100%; max-height: 220px; object-fit: contain; margin: 12px 0; border-radius: 14px; background: #fff; }
 </style>
 </head>
 <body>
 
-<div class="tabs">
-  <button class="tab active" data-tab="generate">🎨 Générer</button>
-  <button class="tab" data-tab="scan">📷 Scanner</button>
-  <button class="tab" data-tab="history">🕘 Historique</button>
-</div>
+<header class="appbar">
+  <img src="icons/icon.svg" alt="">
+  <div><b>QR Studio</b><small>Créer · Scanner · Partager</small></div>
+  <span class="badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>100 % local</span>
+</header>
+
+<nav class="tabs">
+  <button class="tab active" data-tab="generate"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><path d="M14 14h3v3h-3zM20 14v.01M14 20h.01M17 20h4v-3"/></svg>Créer</button>
+  <button class="tab" data-tab="scan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M7 12h10"/></svg>Scanner</button>
+  <button class="tab" data-tab="history"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5M12 7v5l3 2"/></svg>Historique</button>
+</nav>
 
 <!-- ======== ONGLET GÉNÉRATION ======== -->
 <div id="tab-generate" class="tab-content active">
   <div class="container">
+    <div class="form-col">
     <div class="card">
-      <h2>⚙️ Configuration</h2>
-
-      <label for="content-type">Type de contenu</label>
-      <select id="content-type">
+      <div class="card-h"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><path d="M14 14h3v3h-3zM20 14v.01M14 20h.01M17 20h4v-3"/></svg></span><h2>Que doit contenir le QR code ?</h2></div>
+      <div class="types" id="types"><button type="button" class="type on" data-type="text"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg>Lien / texte</button><button type="button" class="type" data-type="wifi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5a10 10 0 0 1 14 0M8.5 16a5 5 0 0 1 7 0M2 9a15 15 0 0 1 20 0M12 20h.01"/></svg>WiFi</button><button type="button" class="type" data-type="vcard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>Contact</button><button type="button" class="type" data-type="email"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>Email</button><button type="button" class="type" data-type="sms"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>SMS</button><button type="button" class="type" data-type="phone"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2z"/></svg>Appel</button><button type="button" class="type" data-type="whatsapp"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21l1.6-4.8A8.5 8.5 0 1 1 7.8 19.4z"/><path d="M9 9.5c.3 1.6 1.9 3.4 3.6 4l1.2-1.2 2 .9c-.2 1.2-1.2 1.8-2.2 1.6-2.7-.5-5-2.8-5.4-5.4-.2-1 .4-2 1.6-2.2l.9 2z"/></svg>WhatsApp</button><button type="button" class="type" data-type="geo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>Lieu</button><button type="button" class="type" data-type="event"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>Événement</button></div>
+      <label for="content-type" class="sr">Type de contenu</label>
+      <select id="content-type" class="sr" tabindex="-1">
         <option value="text">Texte / URL</option>
         <option value="wifi">Réseau WiFi</option>
         <option value="vcard">Contact (vCard)</option>
@@ -155,7 +260,7 @@
         <input type="text" id="f-geo-lat" placeholder="48.8566">
         <label for="f-geo-lng">Longitude</label>
         <input type="text" id="f-geo-lng" placeholder="2.3522">
-        <button type="button" class="btn-secondary" style="margin-top:.5rem;width:100%" onclick="useMyLocation()">📍 Utiliser ma position</button>
+        <button type="button" class="btn-secondary" style="margin-top:.5rem;width:100%" onclick="useMyLocation()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>Utiliser ma position</button>
       </div>
 
       <div id="fields-event" class="hidden">
@@ -171,7 +276,16 @@
         <textarea id="f-ev-desc" placeholder="Détails..."></textarea>
       </div>
 
-      <h3>🎨 Apparence</h3>
+    </div>
+    <details class="card" id="look">
+      <summary><span class="card-h" style="margin:0"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r="1"/><circle cx="17.5" cy="10.5" r="1"/><circle cx="8.5" cy="7.5" r="1"/><circle cx="6.5" cy="12.5" r="1"/><path d="M12 2a10 10 0 0 0 0 20c1 0 1.7-.8 1.7-1.7 0-.4-.2-.8-.4-1.1-.3-.3-.4-.7-.4-1.1 0-.9.8-1.7 1.7-1.7H16a6 6 0 0 0 6-6c0-4.4-4.5-8.4-10-8.4z"/></svg></span><h2>Personnaliser le style</h2></span></summary>
+      <div class="presets" id="presetChips">
+        <button type="button" class="pz" data-p="pro" style="--c:linear-gradient(135deg,#4f46e5,#7c3aed)"><i></i>Indigo</button>
+        <button type="button" class="pz" data-p="festival" style="--c:linear-gradient(135deg,#ec4899,#f59e0b)"><i></i>Festival</button>
+        <button type="button" class="pz" data-p="nature" style="--c:linear-gradient(135deg,#059669,#84cc16)"><i></i>Nature</button>
+        <button type="button" class="pz" data-p="night" style="--c:#1f2937"><i></i>Nuit</button>
+        <button type="button" class="pz" data-p="minimal" style="--c:#000"><i></i>Minimal</button>
+      </div>
       <label for="preset">Style prédéfini</label>
       <select id="preset">
         <option value="">-- Aucun --</option>
@@ -220,50 +334,44 @@
         <input type="checkbox" id="use-frame"> Inclure un cadre décoratif
       </label>
 
-      <div id="contrast-info" style="margin-top:.75rem;"></div>
-      <div id="validation-msg" class="hidden"></div>
-
-      <button type="button" class="btn-warning" style="width:100%;margin-top:.75rem;" onclick="randomDesign()">🎲 Design aléatoire</button>
+      <button type="button" class="btn btn-warning" style="width:100%;margin-top:14px;" onclick="randomDesign()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="M8 8h.01M16 8h.01M12 12h.01M8 16h.01M16 16h.01"/></svg>Design aléatoire</button>
+    </details>
     </div>
 
+    <div class="preview-col">
     <div class="card">
-      <h2>👁️ Aperçu</h2>
       <div id="qr-preview">
         <div id="qr-wrapper">
           <div id="qr-container"></div>
           <div id="frame-label"></div>
         </div>
       </div>
-
-      <h3>📥 Télécharger</h3>
-      <div class="btn-group">
-        <button class="btn-primary" onclick="downloadPng()">PNG</button>
-        <button class="btn-secondary" onclick="downloadSvg()">SVG</button>
-        <button class="btn-primary" onclick="downloadPdf()">PDF</button>
-        <button class="btn-secondary" onclick="copyImage()">📋 Copier</button>
+      <div id="contrast-info"></div>
+      <div id="validation-msg" class="hidden"></div>
+      <button class="btn-big" onclick="downloadPng()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0-4-4m4 4 4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>Télécharger en PNG</button>
+      <div class="btn-group four">
+        <button onclick="downloadSvg()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0-4-4m4 4 4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>SVG</button>
+        <button onclick="downloadPdf()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0-4-4m4 4 4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>PDF</button>
+        <button onclick="copyImage()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"/></svg>Copier</button>
+        <button onclick="printQR()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="7" rx="1"/></svg>Imprimer</button>
       </div>
-
-      <h3>🖨️ Imprimer / Partager</h3>
-      <div class="btn-group">
-        <button class="btn-success" onclick="printQR()">🖨️ Imprimer</button>
-        <button class="btn-success" onclick="shareQR()">📤 Partager</button>
-      </div>
+      <button class="btn btn-success" style="width:100%;margin-top:8px" onclick="shareQR()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7M16 6l-4-4-4 4M12 2v13"/></svg>Partager</button>
+    </div>
     </div>
   </div>
 </div>
 
 <!-- ======== ONGLET SCANNER ======== -->
 <div id="tab-scan" class="tab-content">
-  <div class="container" style="grid-template-columns:1fr;">
+  <div class="container single">
     <div class="card">
-      <h2>📷 Scanner un QR Code</h2>
+      <div class="card-h"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M7 12h10"/></svg></span><h2>Scanner un QR code</h2></div>
       <div class="btn-group">
-        <button class="btn-primary" id="btn-scan-start">▶️ Démarrer la caméra</button>
-        <button class="btn-danger" id="btn-scan-stop" disabled>⏹️ Arrêter</button>
+        <button class="btn-primary" id="btn-scan-start"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>Ouvrir la caméra</button>
+        <button class="btn-danger" id="btn-scan-stop" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>Arrêter</button>
       </div>
-      <div id="qr-reader" style="margin-top:1rem;"></div>
-      <p style="margin-top:1rem;color:#6b7280;font-size:.85rem;">Ou importez une image contenant un QR code :</p>
-      <input type="file" accept="image/*" id="scan-file">
+      <div class="scan-zone"><div id="qr-reader"></div><div class="ph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M7 12h10"/></svg><br>Visez un QR code avec la caméra<br>ou importez une photo / capture d'écran</div></div>
+      <label class="btn file-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>Importer une image<input type="file" accept="image/*" id="scan-file"></label>
       <div id="scan-result" class="hidden"></div>
     </div>
   </div>
@@ -271,13 +379,11 @@
 
 <!-- ======== ONGLET HISTORIQUE ======== -->
 <div id="tab-history" class="tab-content">
-  <div class="container" style="grid-template-columns:1fr;">
+  <div class="container single">
     <div class="card">
-      <div style="display:flex;justify-content:space-between;align-items:center;gap:1rem;">
-        <h2 style="margin:0;">🕘 Historique (local)</h2>
-        <button class="btn-danger" onclick="clearHistory()">🗑️ Tout effacer</button>
-      </div>
-      <p style="color:#6b7280;font-size:.85rem;">Vos QR codes sont stockés <strong>uniquement dans votre navigateur</strong> (localStorage). Aucune donnée n'est envoyée sur Internet.</p>
+      <div class="card-h"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5M12 7v5l3 2"/></svg></span><h2>Historique</h2>
+        <button class="btn btn-danger" style="margin-left:auto;padding:9px 12px;font-size:13px" onclick="clearHistory()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>Tout effacer</button></div>
+      <p class="note"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg><span>Vos QR codes restent <b>uniquement sur cet appareil</b>. Rien n'est envoyé sur Internet.</span></p>
       <div id="history-list"></div>
     </div>
   </div>
@@ -297,28 +403,6 @@ const QR_CAPACITY = { L: 2953, M: 2331, Q: 1663, H: 1273 }; // bytes
 
 // Raccourci d'accès au DOM
 const $ = id => document.getElementById(id);
-
-// ==================== PWA MANIFEST (installable) ====================
-(function setupPWA() {
-  const iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192"><rect width="192" height="192" rx="32" fill="#4f46e5"/><text x="96" y="128" font-size="100" text-anchor="middle" fill="white" font-family="sans-serif" font-weight="bold">QR</text></svg>`;
-  const iconUrl = 'data:image/svg+xml;base64,' + btoa(iconSvg);
-  const manifest = {
-    name: 'QR Code Studio', short_name: 'QR Studio',
-    start_url: '.', display: 'standalone',
-    background_color: '#ffffff', theme_color: '#4f46e5',
-    icons: [
-      { src: iconUrl, sizes: '192x192', type: 'image/svg+xml', purpose: 'any' },
-      { src: iconUrl, sizes: '512x512', type: 'image/svg+xml', purpose: 'any' }
-    ]
-  };
-  try {
-    const blob = new Blob([JSON.stringify(manifest)], { type: 'application/manifest+json' });
-    const link = document.createElement('link');
-    link.rel = 'manifest';
-    link.href = URL.createObjectURL(blob);
-    document.head.appendChild(link);
-  } catch (e) { /* ignoré */ }
-})();
 
 // ==================== UTILITAIRES ====================
 function toast(msg, type = 'info') {
@@ -1015,6 +1099,18 @@ document.querySelectorAll('input, textarea, select').forEach(el => {
 // ==================== INITIALISATION ====================
 showFields();
 renderHistory();
+// ---- pastilles (type de contenu, styles prédéfinis) reliées aux listes d'origine
+function syncTypes() { document.querySelectorAll('.type').forEach(b => b.classList.toggle('on', b.dataset.type === $('content-type').value)); }
+document.querySelectorAll('.type').forEach(b => b.addEventListener('click', () => {
+  $('content-type').value = b.dataset.type; $('content-type').dispatchEvent(new Event('change')); syncTypes();
+}));
+$('content-type').addEventListener('change', syncTypes); syncTypes();
+function syncPresets() { document.querySelectorAll('.pz').forEach(b => b.classList.toggle('on', b.dataset.p === $('preset').value)); }
+document.querySelectorAll('.pz').forEach(b => b.addEventListener('click', () => {
+  $('preset').value = $('preset').value === b.dataset.p ? '' : b.dataset.p; $('preset').dispatchEvent(new Event('change')); syncPresets();
+}));
+$('preset').addEventListener('change', syncPresets);
+if (matchMedia('(min-width: 900px)').matches) $('look').open = true;
 </script>
 </body>
 </html>
