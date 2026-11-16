@@ -8,6 +8,7 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%234f46e5'/%3E%3Ctext x='32' y='44' font-size='32' text-anchor='middle' fill='white' font-family='sans-serif' font-weight='bold'%3EQR%3C/text%3E%3C/svg%3E">
 <script src="https://unpkg.com/qr-code-styling@1.5.0/lib/qr-code-styling.js"></script>
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script src="https://unpkg.com/jsqr@1.4.0/dist/jsQR.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
   * { box-sizing: border-box; font-family: system-ui, -apple-system, sans-serif; }
@@ -488,7 +489,7 @@ function updateQR() {
   }
 
   const options = {
-    width: size, height: size, data: data, margin: 8,
+    width: size, height: size, data: data, margin: Math.round(size * 0.08), // zone blanche ≈ 4 modules (norme QR)
     qrOptions: { errorCorrectionLevel: ecc },
     dotsOptions,
     backgroundOptions: { color: bgColor },
@@ -911,13 +912,30 @@ async function startScanner() {
       () => {}
     );
     scannerRunning = true;
+    startJsqrLoop();
     $('btn-scan-start').disabled = true;
     $('btn-scan-stop').disabled = false;
   } catch (e) {
     toast('Impossible d\'accéder à la caméra : ' + (e.message || e), 'error');
   }
 }
+// second décodeur (jsQR) sur l'image de la caméra : lit aussi les QR codes stylisés (couleurs, points ronds)
+let jsqrTimer = null, lastScan = '';
+function startJsqrLoop() {
+  clearInterval(jsqrTimer);
+  const c = document.createElement('canvas'), x = c.getContext('2d', { willReadFrequently: true });
+  jsqrTimer = setInterval(() => {
+    const v = document.querySelector('#qr-reader video');
+    if (!scannerRunning || !v || !v.videoWidth || !window.jsQR) return;
+    const k = Math.min(1, 800 / Math.max(v.videoWidth, v.videoHeight));
+    c.width = Math.round(v.videoWidth * k); c.height = Math.round(v.videoHeight * k);
+    x.drawImage(v, 0, 0, c.width, c.height);
+    const d = x.getImageData(0, 0, c.width, c.height), r = jsQR(d.data, d.width, d.height, { inversionAttempts: 'attemptBoth' });
+    if (r && r.data) onScanSuccess(r.data);
+  }, 300);
+}
 async function stopScanner() {
+  clearInterval(jsqrTimer);
   if (scanner && scannerRunning) {
     try { await scanner.stop(); await scanner.clear(); } catch (e) {}
     scannerRunning = false;
@@ -926,26 +944,52 @@ async function stopScanner() {
   }
 }
 function onScanSuccess(text) {
+  if (scannerRunning && text === lastScan) return; // même code vu en boucle par la caméra
+  lastScan = text;
   const res = $('scan-result');
   res.textContent = '✅ Résultat : ' + text;
   res.classList.remove('hidden');
   toast('QR code détecté', 'success');
 }
 
+// Lecture d'une image : bord blanc + plusieurs passes (couleurs d'origine, noir et blanc net, inversé), deux décodeurs
+function padCanvas(img) {
+  const m = Math.round(Math.max(img.width, img.height) * 0.12), c = document.createElement('canvas');
+  const k = Math.min(1, 1600 / Math.max(img.width, img.height)); // grandes photos réduites (vitesse)
+  c.width = Math.round(img.width * k) + 2 * m; c.height = Math.round(img.height * k) + 2 * m;
+  const x = c.getContext('2d', { willReadFrequently: true }); x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height);
+  x.drawImage(img, m, m, img.width * k, img.height * k); return c;
+}
+function binarize(src, invert) {
+  const d = new ImageData(new Uint8ClampedArray(src.data), src.width, src.height), px = d.data, L = new Uint8Array(px.length / 4), hist = new Array(256).fill(0);
+  for (let i = 0; i < L.length; i++) { const a = px[i * 4 + 3] / 255; L[i] = Math.round((0.299 * px[i * 4] + 0.587 * px[i * 4 + 1] + 0.114 * px[i * 4 + 2]) * a + 255 * (1 - a)); hist[L[i]]++; }
+  let sum = 0, sB = 0, wB = 0, best = 0, thr = 128; for (let t = 0; t < 256; t++) sum += t * hist[t];
+  for (let t = 0; t < 256; t++) { wB += hist[t]; if (!wB) continue; const wF = L.length - wB; if (!wF) break; sB += t * hist[t]; const mB = sB / wB, mF = (sum - sB) / wF, v = wB * wF * (mB - mF) ** 2; if (v > best) { best = v; thr = t; } }
+  for (let i = 0; i < L.length; i++) { const v = (L[i] <= thr) !== !!invert ? 0 : 255; px[i * 4] = px[i * 4 + 1] = px[i * 4 + 2] = v; px[i * 4 + 3] = 255; }
+  return d;
+}
+async function decodeImageFile(file) {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await loadImage(url), c = padCanvas(img), x = c.getContext('2d'), orig = x.getImageData(0, 0, c.width, c.height);
+    const passes = [orig, binarize(orig, false), binarize(orig, true)];
+    if (window.jsQR) for (const d of passes) { const r = jsQR(d.data, d.width, d.height, { inversionAttempts: 'attemptBoth' }); if (r && r.data) return r.data; }
+    // secours : décodeur de html5-qrcode sur la version noir et blanc
+    x.putImageData(passes[1], 0, 0);
+    const f = new File([await new Promise(r => c.toBlob(r, 'image/png'))], 'scan.png', { type: 'image/png' });
+    const tmp = new Html5Qrcode('qr-reader');
+    try { return await tmp.scanFile(f, false); } finally { try { await tmp.clear(); } catch {} }
+  } finally { URL.revokeObjectURL(url); }
+}
 $('scan-file').addEventListener('change', async e => {
   const file = e.target.files[0];
   if (!file) return;
-  const tmp = new Html5Qrcode('qr-reader');
-  try {
-    const text = await tmp.scanFile(file, true);
-    onScanSuccess(text);
-  } catch {
-    toast('Aucun QR code détecté dans l\'image', 'error');
-  } finally {
-    try { await tmp.clear(); } catch {}
-  }
+  toast('Analyse de l\'image…');
+  try { onScanSuccess(await decodeImageFile(file)); }
+  catch { toast('Aucun QR code détecté dans l\'image', 'error'); }
+  finally { e.target.value = ''; }
 });
-$('btn-scan-start').addEventListener('click', startScanner);
+$('btn-scan-start').addEventListener('click', () => { lastScan = ''; startScanner(); });
 $('btn-scan-stop').addEventListener('click', stopScanner);
 
 // ==================== ÉCOUTEURS ====================
@@ -971,3 +1015,6 @@ document.querySelectorAll('input, textarea, select').forEach(el => {
 // ==================== INITIALISATION ====================
 showFields();
 renderHistory();
+</script>
+</body>
+</html>
